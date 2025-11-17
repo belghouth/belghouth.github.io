@@ -88,13 +88,118 @@ function sanitizeHtmlPreservingFormatting(html, opts) {
   return cleanedHtml;
 }
 
+
+
+// ==================== HIGHLIGHT SYSTEM ====================
+
+// Remove previous highlight spans inside editor
+function clearHighlightsInEditor() {
+  const root = quill.root;
+  const spans = root.querySelectorAll('.highlight-invisible');
+  spans.forEach(span => {
+    const text = document.createTextNode(span.textContent);
+    span.replaceWith(text);
+  });
+}
+
+// Highlight invisibles + EM DASH inside editor
+function highlightProblemCharsInEditor() {
+  clearHighlightsInEditor();
+
+  const opts = options;
+  const root = quill.root;
+
+  function walk(node) {
+    node.childNodes.forEach(child => {
+      if (child.nodeType === Node.TEXT_NODE) {
+        const text = child.nodeValue;
+
+        // Fast skip if nothing suspicious
+        if (!/[\u200B\u200C\u200D\uFEFF\u202A-\u202E\u2066-\u2069\u200E\u200F\u00A0\u202F\u2014]/.test(text)) {
+          return;
+        }
+
+        const frag = document.createDocumentFragment();
+
+        for (let i = 0; i < text.length; i++) {
+          const ch = text[i];
+          let label = null;
+
+          // Zero-width chars
+          if (opts.removeZeroWidth && /[\u200B\u200C\u200D\uFEFF]/.test(ch)) {
+            label = "Zero-width character";
+          }
+          // BiDi control chars (including LRM/RLM)
+          else if (opts.removeBidi && /[\u202A-\u202E\u2066-\u2069\u200E\u200F]/.test(ch)) {
+            label = "BiDi / Direction marker";
+          }
+          // Non-breaking spaces
+          else if (opts.normalizeSpaces && /[\u00A0\u202F]/.test(ch)) {
+            label = "Non-breaking space";
+          }
+          // EM DASH specifically (because you're converting it to "; ")
+          else if (ch === '\u2014') {
+            label = "EM DASH — (will become '; ' )";
+          }
+
+          if (label) {
+            const span = document.createElement('span');
+            span.className = 'highlight-invisible';
+            span.textContent = ch;
+            span.title = label;
+            frag.appendChild(span);
+          } else {
+            frag.appendChild(document.createTextNode(ch));
+          }
+        }
+
+        child.replaceWith(frag);
+      } else {
+        walk(child);
+      }
+    });
+  }
+
+  walk(root);
+}
+
+// Debounced trigger
+let highlightTimer = null;
+function scheduleHighlight() {
+  clearTimeout(highlightTimer);
+  highlightTimer = setTimeout(highlightProblemCharsInEditor, 120);
+}
+
+// Reconstruct raw HTML without highlight spans
+function getCleanHtmlFromEditor() {
+  const clone = quill.root.cloneNode(true);
+  const spans = clone.querySelectorAll('.highlight-invisible');
+  spans.forEach(span => {
+    span.replaceWith(document.createTextNode(span.textContent));
+  });
+  return clone.innerHTML;
+}
+
+
+
+
 // --- Events -----------------------------------------------------
 
 sanitizeBtn.addEventListener('click', () => {
-  const html = quill.root.innerHTML;
+  const html = getCleanHtmlFromEditor();   // NEW: remove highlight spans first
   const cleanedHtml = sanitizeHtmlPreservingFormatting(html, options);
   outputDiv.innerHTML = cleanedHtml;
 });
+
+quill.on('text-change', scheduleHighlight);
+
+['removeZeroWidth', 'removeBidi', 'normalizeSpaces', 'collapseBlankLines'].forEach(id => {
+  document.getElementById(id).addEventListener('change', scheduleHighlight);
+});
+
+// Initial run
+scheduleHighlight();
+
 
 copyBtn.addEventListener('click', () => {
   const selection = window.getSelection();

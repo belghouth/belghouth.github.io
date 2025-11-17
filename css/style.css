@@ -95,3 +95,11 @@ button {
   opacity: 0.95;
   user-select: none;
 }
+
+.highlight-invisible {
+  background: rgba(255, 221, 0, 0.55);  /* visible amber highlight */
+  border-radius: 2px;
+  padding: 0 1px;
+  outline: 1px dashed #d97706;
+  cursor: help;
+}
