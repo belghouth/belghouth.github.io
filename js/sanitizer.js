@@ -141,6 +141,11 @@ function highlightProblemCharsInEditor() {
           else if (ch === '\u2014') {
             label = "EM DASH — (will become '; ' )";
           }
+          // Fallback: highlight ANY non-ASCII char (for debugging)
+          else if (ch.charCodeAt(0) > 127) {
+            label = "Non-ASCII character";
+          }
+
 
           if (label) {
             const span = document.createElement('span');
