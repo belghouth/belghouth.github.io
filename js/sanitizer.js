@@ -85,8 +85,23 @@ function sanitizeHtmlPreservingFormatting(html, opts) {
   // Collapse repeated empty paragraphs
   cleanedHtml = cleanedHtml.replace(/(<p>\s*<\/p>){2,}/gi, '<p></p>');
 
+  // ---------- XSS PROTECTION: sanitize with DOMPurify ---------- //
+  if (window.DOMPurify) {
+    cleanedHtml = DOMPurify.sanitize(cleanedHtml, {
+      ALLOWED_TAGS: [
+        'p', 'br', 'div', 'span',
+        'b', 'strong', 'i', 'em', 'u',
+        'ul', 'ol', 'li'
+      ],
+      ALLOWED_ATTR: [
+        'class' // allow Quill's classes for lists / formatting
+      ]
+    });
+  }
+
   return cleanedHtml;
 }
+
 
 
 
