@@ -15,7 +15,30 @@ const options = {
   get removeBidi() { return document.getElementById('removeBidi').checked; },
   get normalizeSpaces() { return document.getElementById('normalizeSpaces').checked; },
   get collapseBlankLines() { return document.getElementById('collapseBlankLines').checked; },
+  get expandLatinAbbrev() { return document.getElementById('expandLatinAbbrev').checked; },
 };
+
+
+// Latin / English abbreviations to expand when "Expand Latin abbreviations" is enabled
+const LATIN_ABBREVIATIONS = [
+  // E.g. → for example
+  { pattern: /\b[eE]\.g\./g, replacement: 'for example' },
+
+  // I.e. → that is
+  { pattern: /\b[iI]\.e\./g, replacement: 'that is' },
+
+  // Etc. → and so on
+  { pattern: /\betc\./gi, replacement: 'and so on' },
+
+  // Vs. → versus
+  { pattern: /\bvs\./gi, replacement: 'versus' },
+
+  // Cf. → compare
+  { pattern: /\bcf\./gi, replacement: 'compare' },
+
+  // Et al. → and others
+  { pattern: /\bet al\./gi, replacement: 'and others' },
+];
 
 // --- Core sanitization logic ------------------------------------
 
@@ -36,9 +59,23 @@ function sanitizeTextContent(text, opts) {
     text = text.replace(/[\u00A0\u202F]/g, ' ');
   }
 
+  // Replace ONLY EM DASH (—) with a clean "; "
   text = text
     .replace(/\s*\u2014\s*/g, '; ')
     .replace(/;\s+/g, '; ');  // ensure exactly one space after ;
+
+  // Normalize ALL other dash-like characters to ASCII hyphen (-)
+  text = text.replace(
+    /[\u2010\u2011\u2012\u2013\u2015\u2212\uFE63\uFF0D\u30FC\u2043\u2E3A\u2E3B]/g,
+    '-'
+  );
+
+  // Expand Latin / English abbreviations if enabled
+  if (opts.expandLatinAbbrev) {
+    LATIN_ABBREVIATIONS.forEach(({ pattern, replacement }) => {
+      text = text.replace(pattern, replacement);
+    });
+  }
 
   return text;
 }
@@ -213,7 +250,7 @@ sanitizeBtn.addEventListener('click', () => {
 
 quill.on('text-change', scheduleHighlight);
 
-['removeZeroWidth', 'removeBidi', 'normalizeSpaces', 'collapseBlankLines'].forEach(id => {
+['removeZeroWidth', 'removeBidi', 'normalizeSpaces', 'collapseBlankLines', 'expandLatinAbbrev'].forEach(id => {
   document.getElementById(id).addEventListener('change', scheduleHighlight);
 });
 
